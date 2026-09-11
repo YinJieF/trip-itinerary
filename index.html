@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
 <title>Trip Itinerary</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -42,7 +45,7 @@
   }
   .item-top {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 10px;
   }
   .item-time {
@@ -51,8 +54,8 @@
     font-weight: 700;
     white-space: nowrap;
     min-width: 44px;
-    padding-top: 2px;
   }
+  .item-title-block { flex: 1; min-width: 0; }
   .item-title { font-weight: 600; font-size: 1rem; }
   .item-loc { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
   .item-notes { font-size: 0.9rem; margin-top: 6px; white-space: pre-wrap; }
@@ -185,7 +188,7 @@
   // ---- CONFIG: fill these in ----
   const SUPABASE_URL = "https://cvksnemhjtcxgispoogw.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_r9lHIqec7Qoze7Qh5pKSvA_TalHpu4z";
-  const SHARED_PASSWORD = "0920"; // simple gate, not real security — change this to your own
+  const SHARED_PASSWORD = "passwords"; // simple gate, not real security — change this to your own
   // --------------------------------
 
   let supabaseClient;
@@ -404,11 +407,11 @@
     div.innerHTML = `
       <div class="item-top">
         <div class="item-time">${it.time ? escapeHtml(it.time.slice(0,5)) : ''}</div>
-        <div>
+        <div class="item-title-block">
           <div class="item-title">${escapeHtml(it.title)}</div>
-          ${it.location ? `<div class="item-loc">📍 ${escapeHtml(it.location)}</div>` : ''}
         </div>
       </div>
+      ${it.location ? `<div class="item-loc">📍 ${escapeHtml(it.location)}</div>` : ''}
       ${it.notes ? `<div class="item-notes">${escapeHtml(it.notes)}</div>` : ''}
       <div class="item-actions">
         <button onclick="startEdit('${it.id}')">Edit</button>
