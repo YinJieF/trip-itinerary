@@ -217,6 +217,23 @@
   .comment-text a:hover {
     opacity: 0.8;
   }
+
+  .comment-actions {
+    margin-left: 8px;
+  }
+  
+  .comment-actions button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 0 3px;
+  }
+  
+  .comment-actions button:hover {
+    color: var(--accent);
+  }
 </style>
 </head>
 
@@ -542,7 +559,22 @@
         <button onclick="deleteItem('${it.id}')">Delete</button>
       </div>
       <div class="comments" id="comments-${it.id}">
-        ${it.comments.map(c => `<div class="comment"><b>${escapeHtml(c.author || 'Someone')}:</b> <span class="comment-text">${linkifyText(c.text)}</span></div>`).join('')}
+        ${it.comments.map(c => {
+            const canEdit = getName() === (c.author || 'Someone');
+          
+            return `
+              <div class="comment" id="comment-${c.id}">
+                <b>${escapeHtml(c.author || 'Someone')}:</b>
+                <span class="comment-text">${linkifyText(c.text)}</span>
+                ${canEdit ? `
+                  <span class="comment-actions">
+                    <button onclick="editComment('${c.id}')">Edit</button>
+                    <button onclick="deleteComment('${c.id}')">Delete</button>
+                  </span>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
         <div class="comment-form">
           <input type="text" id="commentInput-${it.id}" placeholder="Add a comment…" />
           <button onclick="addComment('${it.id}')">Post</button>
@@ -695,9 +727,77 @@
       '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
     );
   }
-    function escapeAttr(str) { return escapeHtml(str); }
+
+  async function editComment(commentId) {
+  const comment = items
+    .flatMap(i => i.comments || [])
+    .find(c => c.id === commentId);
+
+  if (!comment) return;
+
+  // Make sure the current user is the original author
+  if (getName() !== (comment.author || 'Someone')) {
+    alert('You can only edit your own comments.');
+    return;
+  }
+
+  const next = prompt('Edit comment:', comment.text);
+
+  if (next === null) return;
+
+  const text = next.trim();
+
+  if (!text) {
+    alert('Comment cannot be empty.');
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from('comments')
+    .update({ text })
+    .eq('id', commentId)
+    .eq('author', getName());
+
+  if (error) {
+    alert('Failed to edit comment: ' + error.message);
+    return;
+  }
+
+  await loadItems();
+}
+
+async function deleteComment(commentId) {
+  const comment = items
+    .flatMap(i => i.comments || [])
+    .find(c => c.id === commentId);
+
+  if (!comment) return;
+
+  // Make sure the current user is the original author
+  if (getName() !== (comment.author || 'Someone')) {
+    alert('You can only delete your own comments.');
+    return;
+  }
+
+  if (!confirm('Delete this comment?')) return;
+
+  const { error } = await supabaseClient
+    .from('comments')
+    .update({ is_deleted: true })
+    .eq('id', commentId)
+    .eq('author', getName());
+
+  if (error) {
+    alert('Failed to delete comment: ' + error.message);
+    return;
+  }
+
+  await loadItems();
+}
   
-    function openPhotoLightbox(url) {
+  function escapeAttr(str) { return escapeHtml(str); }
+  
+  function openPhotoLightbox(url) {
     const lightbox = document.getElementById('photoLightbox');
     const img = document.getElementById('photoLightboxImg');
   
