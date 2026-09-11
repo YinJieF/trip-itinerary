@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Trip Itinerary</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #f7f5f2;
+    --card: #ffffff;
+    --border: #e5e1da;
+    --text: #2b2a28;
+    --muted: #8a857c;
+    --accent: #3a6b5c;
+    --accent-light: #e8f0ed;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px 16px 80px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  .sub { color: var(--muted); margin-bottom: 24px; font-size: 0.9rem; }
+  .day-group { margin-bottom: 28px; }
+  .day-title {
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin-bottom: 10px;
+    color: var(--accent);
+  }
+  .item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .item-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .item-title { font-weight: 600; font-size: 1rem; }
+  .item-time { color: var(--accent); font-size: 0.85rem; white-space: nowrap; }
+  .item-loc { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+  .item-notes { font-size: 0.9rem; margin-top: 6px; white-space: pre-wrap; }
+  .item-actions { margin-top: 10px; display: flex; gap: 10px; }
+  .item-actions button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 2px 0;
+  }
+  .item-actions button:hover { color: var(--accent); }
+  .comments { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px; }
+  .comment { font-size: 0.85rem; margin-bottom: 6px; }
+  .comment b { color: var(--accent); }
+  .comment-form { display: flex; gap: 6px; margin-top: 6px; }
+  .comment-form input[type=text] {
+    flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem;
+  }
+  .comment-form button, .add-btn, .save-btn, .cancel-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .cancel-btn { background: var(--muted); }
+  .add-form {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 20px;
+  }
+  .add-form h3 { margin-top: 0; font-size: 0.95rem; }
+  .add-form input, .add-form textarea {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-family: inherit;
+  }
+  .row2 { display: flex; gap: 8px; }
+  .row2 input { flex: 1; }
+  .edit-field {
+    width: 100%; padding: 6px; margin-bottom: 6px; border: 1px solid var(--border);
+    border-radius: 6px; font-size: 0.9rem; font-family: inherit;
+  }
+  .gate {
+    max-width: 360px; margin: 80px auto; text-align: center;
+  }
+  .gate input { padding: 8px; width: 100%; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; }
+  .gate button { padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; }
+  .name-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; font-size: 0.85rem; color: var(--muted); }
+  .name-bar input { padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; }
+  .empty { color: var(--muted); font-size: 0.9rem; padding: 20px 0; text-align: center; }
+  .error { color: #b3453e; font-size: 0.85rem; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate">
+  <h2>Trip Itinerary</h2>
+  <p style="color:var(--muted); font-size:0.9rem;">Enter the shared password to continue.</p>
+  <input type="password" id="passInput" placeholder="Password" />
+  <button onclick="checkPassword()">Enter</button>
+  <div id="gateError" class="error"></div>
+</div>
+
+<div class="wrap" id="tripPicker" style="display:none;">
+  <h1>Select a trip</h1>
+  <div class="sub">Pick an existing trip, or create a new one.</div>
+  <div id="tripList" class="add-form"></div>
+  <div class="add-form">
+    <h3>Create new trip</h3>
+    <input type="text" id="newTripName" placeholder="Trip name (e.g. Japan 2026)" />
+    <input type="text" id="newTripSlug" placeholder="URL slug (e.g. japan-2026)" />
+    <button class="add-btn" onclick="createTrip()">Create trip</button>
+    <div id="tripError" class="error"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app" style="display:none;">
+  <div class="sub"><a href="#" onclick="backToPicker(); return false;">&larr; switch trip</a></div>
+  <h1 id="tripName">Loading trip…</h1>
+  <div class="sub" id="tripSub"></div>
+
+  <div class="name-bar">
+    Editing as:
+    <input type="text" id="yourName" placeholder="Your name" />
+  </div>
+
+  <div id="days"></div>
+
+  <div class="add-form">
+    <h3>Add itinerary item</h3>
+    <div class="row2">
+      <input type="number" id="newDay" placeholder="Day #" min="1" />
+      <input type="text" id="newTime" placeholder="Time (e.g. 9:00am)" />
+    </div>
+    <input type="text" id="newTitle" placeholder="Title (e.g. Fushimi Inari hike)" />
+    <input type="text" id="newLocation" placeholder="Location (optional)" />
+    <textarea id="newNotes" placeholder="Notes (optional)" rows="2"></textarea>
+    <button class="add-btn" onclick="addItem()">Add item</button>
+    <div id="addError" class="error"></div>
+  </div>
+</div>
+
+<script>
+  // ---- CONFIG: fill these in ----
+  const SUPABASE_URL = "https://cvksnemhjtcxgispoogw.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_r9lHIqec7Qoze7Qh5pKSvA_TalHpu4z";
+  const SHARED_PASSWORD = "passwords"; // simple gate, not real security — change this to your own
+  // --------------------------------
+
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let tripId = null;
+  let items = [];
+
+  function checkPassword() {
+    const val = document.getElementById('passInput').value;
+    if (val === SHARED_PASSWORD) {
+      sessionStorage.setItem('trip_auth', 'ok');
+      document.getElementById('gate').style.display = 'none';
+      enterAfterAuth();
+    } else {
+      document.getElementById('gateError').textContent = 'Wrong password.';
+    }
+  }
+
+  if (sessionStorage.getItem('trip_auth') === 'ok') {
+    document.getElementById('gate').style.display = 'none';
+    enterAfterAuth();
+  }
+
+  function enterAfterAuth() {
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get('trip');
+    if (slug) {
+      openTrip(slug);
+    } else {
+      showTripPicker();
+    }
+  }
+
+  function backToPicker() {
+    const url = new URL(window.location);
+    url.searchParams.delete('trip');
+    window.history.pushState({}, '', url);
+    document.getElementById('app').style.display = 'none';
+    showTripPicker();
+  }
+
+  async function showTripPicker() {
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('tripPicker').style.display = 'block';
+
+    const { data: trips } = await supabase
+      .from('trips')
+      .select('*')
+      .eq('is_delete', false)
+      .order('created_at', { ascending: false });
+
+    const listEl = document.getElementById('tripList');
+    if (!trips || trips.length === 0) {
+      listEl.innerHTML = '<div class="empty">No trips yet — create one below.</div>';
+      return;
+    }
+    listEl.innerHTML = '<h3>Existing trips</h3>' + trips.map(t =>
+      `<div class="item" style="cursor:pointer" onclick="selectTrip('${t.slug}')">
+         <div class="item-title">${escapeHtml(t.name)}</div>
+         <div class="item-loc">/?trip=${escapeHtml(t.slug)}</div>
+       </div>`
+    ).join('');
+  }
+
+  function selectTrip(slug) {
+    const url = new URL(window.location);
+    url.searchParams.set('trip', slug);
+    window.history.pushState({}, '', url);
+    openTrip(slug);
+  }
+
+  async function createTrip() {
+    const name = document.getElementById('newTripName').value.trim();
+    let slug = document.getElementById('newTripSlug').value.trim();
+    const errEl = document.getElementById('tripError');
+    errEl.textContent = '';
+
+    if (!name) { errEl.textContent = 'Trip name is required.'; return; }
+    if (!slug) {
+      slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    }
+
+    const { error } = await supabase.from('trips').insert({ name, slug });
+    if (error) {
+      errEl.textContent = error.message.includes('duplicate') ? 'That slug is already taken.' : error.message;
+      return;
+    }
+    selectTrip(slug);
+  }
+
+  async function openTrip(slug) {
+    document.getElementById('tripPicker').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    await init(slug);
+  }
+
+  function getName() {
+    let n = document.getElementById('yourName').value.trim();
+    if (!n) n = localStorage.getItem('trip_username') || '';
+    if (n) localStorage.setItem('trip_username', n);
+    return n || 'Someone';
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('trip_username');
+    if (saved) document.getElementById('yourName').value = saved;
+  });
+
+  async function init(slug) {
+    const { data: trip, error } = await supabase
+      .from('trips')
+      .select('*')
+      .eq('slug', slug)
+      .eq('is_delete', false)
+      .single();
+
+    if (error || !trip) {
+      document.getElementById('tripName').textContent = 'Trip not found';
+      return;
+    }
+    tripId = trip.id;
+    document.getElementById('tripName').textContent = trip.name;
+    document.getElementById('tripSub').textContent = 'Edit the plan, leave comments below each item.';
+
+    await loadItems();
+
+    supabase
+      .channel('itinerary-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'itinerary_items' }, loadItems)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, loadItems)
+      .subscribe();
+  }
+
+  async function loadItems() {
+    const { data: itemRows } = await supabase
+      .from('itinerary_items')
+      .select('*')
+      .eq('trip_id', tripId)
+      .eq('is_delete', false)
+      .order('day_number', { ascending: true })
+      .order('order_index', { ascending: true });
+
+    const { data: commentRows } = await supabase
+      .from('comments')
+      .select('*')
+      .eq('is_delete', false)
+      .order('created_at', { ascending: true });
+
+    items = (itemRows || []).map(it => ({
+      ...it,
+      comments: (commentRows || []).filter(c => c.item_id === it.id)
+    }));
+
+    render();
+  }
+
+  function render() {
+    const container = document.getElementById('days');
+    container.innerHTML = '';
+
+    if (items.length === 0) {
+      container.innerHTML = '<div class="empty">No itinerary items yet. Add the first one below!</div>';
+      return;
+    }
+
+    const grouped = {};
+    items.forEach(it => {
+      const d = it.day_number ?? 'Unscheduled';
+      if (!grouped[d]) grouped[d] = [];
+      grouped[d].push(it);
+    });
+
+    Object.keys(grouped).sort((a, b) => (a === 'Unscheduled' ? 1 : b === 'Unscheduled' ? -1 : a - b))
+      .forEach(day => {
+        const group = document.createElement('div');
+        group.className = 'day-group';
+        const label = day === 'Unscheduled' ? 'Unscheduled' : `Day ${day}`;
+        group.innerHTML = `<div class="day-title">${label}</div>`;
+        grouped[day].forEach(it => group.appendChild(renderItem(it)));
+        container.appendChild(group);
+      });
+  }
+
+  function renderItem(it) {
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.id = `item-${it.id}`;
+    div.innerHTML = `
+      <div class="item-top">
+        <div>
+          <div class="item-title">${escapeHtml(it.title)}</div>
+          ${it.location ? `<div class="item-loc">📍 ${escapeHtml(it.location)}</div>` : ''}
+        </div>
+        <div class="item-time">${escapeHtml(it.time || '')}</div>
+      </div>
+      ${it.notes ? `<div class="item-notes">${escapeHtml(it.notes)}</div>` : ''}
+      <div class="item-actions">
+        <button onclick="startEdit('${it.id}')">Edit</button>
+        <button onclick="deleteItem('${it.id}')">Delete</button>
+      </div>
+      <div class="comments" id="comments-${it.id}">
+        ${it.comments.map(c => `<div class="comment"><b>${escapeHtml(c.author || 'Someone')}:</b> ${escapeHtml(c.text)}</div>`).join('')}
+        <div class="comment-form">
+          <input type="text" id="commentInput-${it.id}" placeholder="Add a comment…" />
+          <button onclick="addComment('${it.id}')">Post</button>
+        </div>
+      </div>
+    `;
+    return div;
+  }
+
+  function startEdit(id) {
+    const it = items.find(i => i.id === id);
+    const div = document.getElementById(`item-${id}`);
+    div.innerHTML = `
+      <input class="edit-field" id="edit-title-${id}" value="${escapeAttr(it.title)}" placeholder="Title" />
+      <div class="row2">
+        <input class="edit-field" id="edit-day-${id}" type="number" value="${it.day_number ?? ''}" placeholder="Day #" />
+        <input class="edit-field" id="edit-time-${id}" value="${escapeAttr(it.time || '')}" placeholder="Time" />
+      </div>
+      <input class="edit-field" id="edit-location-${id}" value="${escapeAttr(it.location || '')}" placeholder="Location" />
+      <textarea class="edit-field" id="edit-notes-${id}" rows="2" placeholder="Notes">${escapeHtml(it.notes || '')}</textarea>
+      <button class="save-btn" onclick="saveEdit('${id}')">Save</button>
+      <button class="cancel-btn" onclick="render()">Cancel</button>
+    `;
+  }
+
+  async function saveEdit(id) {
+    const title = document.getElementById(`edit-title-${id}`).value.trim();
+    if (!title) return alert('Title is required');
+    const day = document.getElementById(`edit-day-${id}`).value;
+    const time = document.getElementById(`edit-time-${id}`).value.trim();
+    const location = document.getElementById(`edit-location-${id}`).value.trim();
+    const notes = document.getElementById(`edit-notes-${id}`).value.trim();
+
+    await supabase.from('itinerary_items').update({
+      title, day_number: day ? parseInt(day) : null, time, location, notes,
+      updated_at: new Date().toISOString()
+    }).eq('id', id);
+
+    await loadItems();
+  }
+
+  async function deleteItem(id) {
+    if (!confirm('Delete this item?')) return;
+    await supabase.from('itinerary_items').update({ is_delete: true }).eq('id', id);
+    await loadItems();
+  }
+
+  async function addItem() {
+    const title = document.getElementById('newTitle').value.trim();
+    const errEl = document.getElementById('addError');
+    if (!title) { errEl.textContent = 'Title is required.'; return; }
+    errEl.textContent = '';
+
+    const day = document.getElementById('newDay').value;
+    const time = document.getElementById('newTime').value.trim();
+    const location = document.getElementById('newLocation').value.trim();
+    const notes = document.getElementById('newNotes').value.trim();
+
+    const { error } = await supabase.from('itinerary_items').insert({
+      trip_id: tripId,
+      title, time, location, notes,
+      day_number: day ? parseInt(day) : null,
+      created_by: getName()
+    });
+
+    if (error) { errEl.textContent = error.message; return; }
+
+    document.getElementById('newDay').value = '';
+    document.getElementById('newTime').value = '';
+    document.getElementById('newTitle').value = '';
+    document.getElementById('newLocation').value = '';
+    document.getElementById('newNotes').value = '';
+
+    await loadItems();
+  }
+
+  async function addComment(itemId) {
+    const input = document.getElementById(`commentInput-${itemId}`);
+    const text = input.value.trim();
+    if (!text) return;
+    await supabase.from('comments').insert({
+      item_id: itemId,
+      author: getName(),
+      text
+    });
+    await loadItems();
+  }
+
+  function escapeHtml(str) {
+    if (str == null) return '';
+    return str.replace(/[&<>"']/g, m => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[m]));
+  }
+  function escapeAttr(str) { return escapeHtml(str); }
+</script>
+
+</body>
+</html>
