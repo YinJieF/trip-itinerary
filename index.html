@@ -167,12 +167,19 @@
   const SHARED_PASSWORD = "passwords"; // simple gate, not real security — change this to your own
   // --------------------------------
 
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let supabase;
+  try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } catch (e) {
+    document.getElementById('gateError').textContent =
+      'Failed to load Supabase library — check your internet connection or ad-blocker (console: ' + e.message + ')';
+    console.error('Supabase init failed:', e);
+  }
   let tripId = null;
   let items = [];
 
   function checkPassword() {
-    const val = document.getElementById('passInput').value;
+    const val = document.getElementById('passInput').value.trim();
     if (val === SHARED_PASSWORD) {
       sessionStorage.setItem('trip_auth', 'ok');
       document.getElementById('gate').style.display = 'none';
@@ -209,13 +216,18 @@
     document.getElementById('app').style.display = 'none';
     document.getElementById('tripPicker').style.display = 'block';
 
-    const { data: trips } = await supabase
+    const { data: trips, error } = await supabase
       .from('trips')
       .select('*')
       .eq('is_delete', false)
       .order('created_at', { ascending: false });
 
     const listEl = document.getElementById('tripList');
+    if (error) {
+      listEl.innerHTML = '<div class="error">Could not load trips: ' + escapeHtml(error.message) + '</div>';
+      console.error('Trip list error:', error);
+      return;
+    }
     if (!trips || trips.length === 0) {
       listEl.innerHTML = '<div class="empty">No trips yet — create one below.</div>';
       return;
