@@ -109,6 +109,20 @@
   .name-bar input { padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; }
   .empty { color: var(--muted); font-size: 0.9rem; padding: 20px 0; text-align: center; }
   .error { color: #b3453e; font-size: 0.85rem; margin-top: 8px; }
+  .day-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 16px; padding-bottom: 4px; }
+  .day-tab {
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .day-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -144,13 +158,14 @@
     <input type="text" id="yourName" placeholder="Your name" />
   </div>
 
+  <div id="dayTabs" class="day-tabs"></div>
   <div id="days"></div>
 
   <div class="add-form">
     <h3>Add itinerary item</h3>
     <div class="row2">
       <input type="number" id="newDay" placeholder="Day #" min="1" />
-      <input type="text" id="newTime" placeholder="Time (e.g. 9:00am)" />
+      <input type="time" id="newTime" placeholder="Time" />
     </div>
     <input type="text" id="newTitle" placeholder="Title (e.g. Fushimi Inari hike)" />
     <input type="text" id="newLocation" placeholder="Location (optional)" />
@@ -164,7 +179,7 @@
   // ---- CONFIG: fill these in ----
   const SUPABASE_URL = "https://cvksnemhjtcxgispoogw.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_r9lHIqec7Qoze7Qh5pKSvA_TalHpu4z";
-  const SHARED_PASSWORD = "0920"; // simple gate, not real security — change this to your own
+  const SHARED_PASSWORD = "passwords"; // simple gate, not real security — change this to your own
   // --------------------------------
 
   let supabaseClient;
@@ -316,7 +331,8 @@
       .eq('trip_id', tripId)
       .eq('is_deleted', false)
       .order('day_number', { ascending: true })
-      .order('order_index', { ascending: true });
+      .order('time', { ascending: true, nullsFirst: false })
+      .order('id', { ascending: true });
 
     const { data: commentRows } = await supabaseClient
       .from('comments')
@@ -332,8 +348,12 @@
     render();
   }
 
+  let currentDay = null;
+
   function render() {
+    const tabsEl = document.getElementById('dayTabs');
     const container = document.getElementById('days');
+    tabsEl.innerHTML = '';
     container.innerHTML = '';
 
     if (items.length === 0) {
@@ -348,15 +368,27 @@
       grouped[d].push(it);
     });
 
-    Object.keys(grouped).sort((a, b) => (a === 'Unscheduled' ? 1 : b === 'Unscheduled' ? -1 : a - b))
-      .forEach(day => {
-        const group = document.createElement('div');
-        group.className = 'day-group';
-        const label = day === 'Unscheduled' ? 'Unscheduled' : `Day ${day}`;
-        group.innerHTML = `<div class="day-title">${label}</div>`;
-        grouped[day].forEach(it => group.appendChild(renderItem(it)));
-        container.appendChild(group);
-      });
+    const dayKeys = Object.keys(grouped).sort((a, b) =>
+      a === 'Unscheduled' ? 1 : b === 'Unscheduled' ? -1 : a - b
+    );
+
+    // if the previously selected day no longer exists (e.g. its last item was deleted), fall back to the first day
+    if (currentDay === null || !dayKeys.includes(String(currentDay))) {
+      currentDay = dayKeys[0];
+    }
+
+    dayKeys.forEach(day => {
+      const tab = document.createElement('button');
+      tab.className = 'day-tab' + (day === currentDay ? ' active' : '');
+      tab.textContent = day === 'Unscheduled' ? 'Unscheduled' : `Day ${day}`;
+      tab.onclick = () => { currentDay = day; render(); };
+      tabsEl.appendChild(tab);
+    });
+
+    grouped[currentDay].forEach(it => container.appendChild(renderItem(it)));
+
+    const newDayInput = document.getElementById('newDay');
+    if (newDayInput && currentDay !== 'Unscheduled') newDayInput.value = currentDay;
   }
 
   function renderItem(it) {
@@ -365,11 +397,11 @@
     div.id = `item-${it.id}`;
     div.innerHTML = `
       <div class="item-top">
+        <div class="item-time">${it.time ? escapeHtml(it.time.slice(0,5)) : ''}</div>
         <div>
           <div class="item-title">${escapeHtml(it.title)}</div>
           ${it.location ? `<div class="item-loc">📍 ${escapeHtml(it.location)}</div>` : ''}
         </div>
-        <div class="item-time">${escapeHtml(it.time || '')}</div>
       </div>
       ${it.notes ? `<div class="item-notes">${escapeHtml(it.notes)}</div>` : ''}
       <div class="item-actions">
@@ -394,7 +426,7 @@
       <input class="edit-field" id="edit-title-${id}" value="${escapeAttr(it.title)}" placeholder="Title" />
       <div class="row2">
         <input class="edit-field" id="edit-day-${id}" type="number" value="${it.day_number ?? ''}" placeholder="Day #" />
-        <input class="edit-field" id="edit-time-${id}" value="${escapeAttr(it.time || '')}" placeholder="Time" />
+        <input class="edit-field" id="edit-time-${id}" type="time" value="${escapeAttr(it.time || '')}" placeholder="Time" />
       </div>
       <input class="edit-field" id="edit-location-${id}" value="${escapeAttr(it.location || '')}" placeholder="Location" />
       <textarea class="edit-field" id="edit-notes-${id}" rows="2" placeholder="Notes">${escapeHtml(it.notes || '')}</textarea>
