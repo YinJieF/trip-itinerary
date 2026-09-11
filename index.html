@@ -116,7 +116,7 @@
 <div id="gate" class="gate">
   <h2>Trip Itinerary</h2>
   <p style="color:var(--muted); font-size:0.9rem;">Enter the shared password to continue.</p>
-  <input type="password" id="passInput" placeholder="Password" />
+  <input type="password" id="passInput" placeholder="Password" onkeydown="if(event.key==='Enter') checkPassword()" />
   <button onclick="checkPassword()">Enter</button>
   <div id="gateError" class="error"></div>
 </div>
