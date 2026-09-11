@@ -167,9 +167,9 @@
   const SHARED_PASSWORD = "passwords"; // simple gate, not real security — change this to your own
   // --------------------------------
 
-  let supabase;
+  let supabaseClient;
   try {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   } catch (e) {
     document.getElementById('gateError').textContent =
       'Failed to load Supabase library — check your internet connection or ad-blocker (console: ' + e.message + ')';
@@ -216,7 +216,7 @@
     document.getElementById('app').style.display = 'none';
     document.getElementById('tripPicker').style.display = 'block';
 
-    const { data: trips, error } = await supabase
+    const { data: trips, error } = await supabaseClient
       .from('trips')
       .select('*')
       .eq('is_delete', false)
@@ -258,7 +258,7 @@
       slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     }
 
-    const { error } = await supabase.from('trips').insert({ name, slug });
+    const { error } = await supabaseClient.from('trips').insert({ name, slug });
     if (error) {
       errEl.textContent = error.message.includes('duplicate') ? 'That slug is already taken.' : error.message;
       return;
@@ -285,7 +285,7 @@
   });
 
   async function init(slug) {
-    const { data: trip, error } = await supabase
+    const { data: trip, error } = await supabaseClient
       .from('trips')
       .select('*')
       .eq('slug', slug)
@@ -302,7 +302,7 @@
 
     await loadItems();
 
-    supabase
+    supabaseClient
       .channel('itinerary-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'itinerary_items' }, loadItems)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, loadItems)
@@ -310,7 +310,7 @@
   }
 
   async function loadItems() {
-    const { data: itemRows } = await supabase
+    const { data: itemRows } = await supabaseClient
       .from('itinerary_items')
       .select('*')
       .eq('trip_id', tripId)
@@ -318,7 +318,7 @@
       .order('day_number', { ascending: true })
       .order('order_index', { ascending: true });
 
-    const { data: commentRows } = await supabase
+    const { data: commentRows } = await supabaseClient
       .from('comments')
       .select('*')
       .eq('is_delete', false)
@@ -411,7 +411,7 @@
     const location = document.getElementById(`edit-location-${id}`).value.trim();
     const notes = document.getElementById(`edit-notes-${id}`).value.trim();
 
-    await supabase.from('itinerary_items').update({
+    await supabaseClient.from('itinerary_items').update({
       title, day_number: day ? parseInt(day) : null, time, location, notes,
       updated_at: new Date().toISOString()
     }).eq('id', id);
@@ -421,7 +421,7 @@
 
   async function deleteItem(id) {
     if (!confirm('Delete this item?')) return;
-    await supabase.from('itinerary_items').update({ is_delete: true }).eq('id', id);
+    await supabaseClient.from('itinerary_items').update({ is_delete: true }).eq('id', id);
     await loadItems();
   }
 
@@ -436,7 +436,7 @@
     const location = document.getElementById('newLocation').value.trim();
     const notes = document.getElementById('newNotes').value.trim();
 
-    const { error } = await supabase.from('itinerary_items').insert({
+    const { error } = await supabaseClient.from('itinerary_items').insert({
       trip_id: tripId,
       title, time, location, notes,
       day_number: day ? parseInt(day) : null,
@@ -458,7 +458,7 @@
     const input = document.getElementById(`commentInput-${itemId}`);
     const text = input.value.trim();
     if (!text) return;
-    await supabase.from('comments').insert({
+    await supabaseClient.from('comments').insert({
       item_id: itemId,
       author: getName(),
       text
