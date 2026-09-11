@@ -42,12 +42,18 @@
   }
   .item-top {
     display: flex;
-    justify-content: space-between;
     align-items: flex-start;
-    gap: 8px;
+    gap: 10px;
+  }
+  .item-time {
+    color: var(--accent);
+    font-size: 0.85rem;
+    font-weight: 700;
+    white-space: nowrap;
+    min-width: 44px;
+    padding-top: 2px;
   }
   .item-title { font-weight: 600; font-size: 1rem; }
-  .item-time { color: var(--accent); font-size: 0.85rem; white-space: nowrap; }
   .item-loc { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
   .item-notes { font-size: 0.9rem; margin-top: 6px; white-space: pre-wrap; }
   .item-actions { margin-top: 10px; display: flex; gap: 10px; }
