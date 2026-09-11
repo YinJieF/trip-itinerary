@@ -162,8 +162,57 @@
   }
   .photo-add-btn:hover { background: var(--accent-light); }
   .photo-status { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+
+  /* --- image lightbox --- */
+  .photo-lightbox {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  
+  .photo-lightbox.show {
+    display: flex;
+  }
+  
+  .photo-lightbox img {
+    max-width: 95vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  }
+  
+  .photo-lightbox-close {
+    position: fixed;
+    top: 18px;
+    right: 22px;
+    width: 42px;
+    height: 42px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+    font-size: 28px;
+    line-height: 42px;
+    text-align: center;
+    cursor: pointer;
+    z-index: 10000;
+  }
+  
+  .photo-lightbox-close:hover {
+    background: white;
+  }
 </style>
 </head>
+<div id="photoLightbox" class="photo-lightbox" onclick="closePhotoLightbox(event)">
+  <button class="photo-lightbox-close" onclick="closePhotoLightbox(event)">×</button>
+  <img id="photoLightboxImg" src="" alt="Full size photo" />
+</div>
 <body>
 
 <div id="gate" class="gate">
@@ -464,7 +513,7 @@
         <div class="photo-grid">
           ${photos.map(p => `
             <div class="photo-thumb">
-              <img src="${escapeAttr(p.url)}" onclick="window.open('${escapeAttr(p.url)}','_blank')" />
+              <img src="${escapeAttr(p.url)}" onclick="openPhotoLightbox('${escapeAttr(p.url)}')" />
               <button class="photo-del" title="Delete photo" onclick="deletePhoto('${p.id}', '${escapeAttr(p.storage_path)}')">×</button>
               ${p.caption
                 ? `<div class="photo-caption" title="Click to edit caption" onclick="editCaption('${p.id}')">${escapeHtml(p.caption)}</div>`
@@ -626,7 +675,35 @@
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[m]));
   }
-  function escapeAttr(str) { return escapeHtml(str); }
+    function escapeAttr(str) { return escapeHtml(str); }
+  
+    function openPhotoLightbox(url) {
+    const lightbox = document.getElementById('photoLightbox');
+    const img = document.getElementById('photoLightboxImg');
+  
+    img.src = url;
+    lightbox.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+  
+  function closePhotoLightbox(event) {
+    // If clicking the image itself, don't close
+    if (event && event.target.id === 'photoLightboxImg') return;
+  
+    const lightbox = document.getElementById('photoLightbox');
+    const img = document.getElementById('photoLightboxImg');
+  
+    lightbox.classList.remove('show');
+    img.src = '';
+    document.body.style.overflow = '';
+  }
+  
+  // Allow ESC key to close
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      closePhotoLightbox();
+    }
+  });
 </script>
 
 </body>
