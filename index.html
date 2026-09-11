@@ -132,6 +132,36 @@
     white-space: nowrap;
   }
   .day-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* --- photos --- */
+  .photos { margin-top: 10px; }
+  .photo-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+  .photo-thumb { position: relative; width: 76px; }
+  .photo-thumb img {
+    width: 76px; height: 76px; object-fit: cover; border-radius: 8px;
+    border: 1px solid var(--border); cursor: pointer; display: block;
+    background: var(--accent-light);
+  }
+  .photo-del {
+    position: absolute; top: -6px; right: -6px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent); color: white; border: none;
+    font-size: 12px; line-height: 20px; text-align: center; padding: 0;
+    cursor: pointer;
+  }
+  .photo-caption {
+    font-size: 0.72rem; color: var(--muted); margin-top: 3px;
+    text-align: center; cursor: pointer; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .photo-caption.muted { opacity: 0.6; font-style: italic; }
+  .photo-add-btn {
+    display: inline-block; margin-top: 8px; padding: 6px 12px;
+    border: 1px dashed var(--border); border-radius: 8px;
+    font-size: 0.8rem; color: var(--accent); cursor: pointer;
+  }
+  .photo-add-btn:hover { background: var(--accent-light); }
+  .photo-status { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -189,6 +219,7 @@
   const SUPABASE_URL = "https://cvksnemhjtcxgispoogw.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_r9lHIqec7Qoze7Qh5pKSvA_TalHpu4z";
   const SHARED_PASSWORD = "0920"; // simple gate, not real security — change this to your own
+  const PHOTOS_BUCKET = "itinerary-photos";
   // --------------------------------
 
   let supabaseClient;
@@ -330,7 +361,13 @@
       .channel('itinerary-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'itinerary_items' }, loadItems)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, loadItems)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'itinerary_photos' }, loadItems)
       .subscribe();
+  }
+
+  function getPhotoUrl(path) {
+    const { data } = supabaseClient.storage.from(PHOTOS_BUCKET).getPublicUrl(path);
+    return data.publicUrl;
   }
 
   async function loadItems() {
@@ -349,9 +386,18 @@
       .eq('is_deleted', false)
       .order('created_at', { ascending: true });
 
+    const { data: photoRows } = await supabaseClient
+      .from('itinerary_photos')
+      .select('*')
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: true });
+
     items = (itemRows || []).map(it => ({
       ...it,
-      comments: (commentRows || []).filter(c => c.item_id === it.id)
+      comments: (commentRows || []).filter(c => c.item_id === it.id),
+      photos: (photoRows || [])
+        .filter(p => p.item_id === it.id)
+        .map(p => ({ ...p, url: getPhotoUrl(p.storage_path) }))
     }));
 
     render();
@@ -404,6 +450,7 @@
     const div = document.createElement('div');
     div.className = 'item';
     div.id = `item-${it.id}`;
+    const photos = it.photos || [];
     div.innerHTML = `
       <div class="item-top">
         <div class="item-time">${it.time ? escapeHtml(it.time.slice(0,5)) : ''}</div>
@@ -413,6 +460,24 @@
       </div>
       ${it.location ? `<div class="item-loc">📍 ${escapeHtml(it.location)}</div>` : ''}
       ${it.notes ? `<div class="item-notes">${escapeHtml(it.notes)}</div>` : ''}
+      <div class="photos" id="photos-${it.id}">
+        <div class="photo-grid">
+          ${photos.map(p => `
+            <div class="photo-thumb">
+              <img src="${escapeAttr(p.url)}" onclick="window.open('${escapeAttr(p.url)}','_blank')" />
+              <button class="photo-del" title="Delete photo" onclick="deletePhoto('${p.id}', '${escapeAttr(p.storage_path)}')">×</button>
+              ${p.caption
+                ? `<div class="photo-caption" title="Click to edit caption" onclick="editCaption('${p.id}')">${escapeHtml(p.caption)}</div>`
+                : `<div class="photo-caption muted" title="Click to add caption" onclick="editCaption('${p.id}')">+ caption</div>`}
+            </div>
+          `).join('')}
+        </div>
+        <label class="photo-add-btn">
+          📷 Add photo${photos.length ? 's' : ''}
+          <input type="file" accept="image/*" multiple style="display:none" onchange="uploadPhotos('${it.id}', this.files); this.value='';" />
+        </label>
+        <div class="photo-status" id="photo-status-${it.id}"></div>
+      </div>
       <div class="item-actions">
         <button onclick="startEdit('${it.id}')">Edit</button>
         <button onclick="deleteItem('${it.id}')">Delete</button>
@@ -426,6 +491,54 @@
       </div>
     `;
     return div;
+  }
+
+  async function uploadPhotos(itemId, fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    const statusEl = document.getElementById(`photo-status-${itemId}`);
+    if (statusEl) statusEl.textContent = `Uploading ${files.length} photo${files.length > 1 ? 's' : ''}…`;
+
+    for (const file of files) {
+      const ext = ((file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')) || 'jpg';
+      const path = `${tripId}/${itemId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+      const { error: upErr } = await supabaseClient.storage.from(PHOTOS_BUCKET).upload(path, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+      if (upErr) {
+        if (statusEl) statusEl.textContent = 'Upload failed: ' + upErr.message;
+        console.error('Photo upload error:', upErr);
+        continue;
+      }
+
+      const { error: insErr } = await supabaseClient.from('itinerary_photos').insert({
+        item_id: itemId,
+        storage_path: path,
+        uploaded_by: getName()
+      });
+      if (insErr) console.error('Photo record insert error:', insErr);
+    }
+
+    if (statusEl) statusEl.textContent = '';
+    await loadItems();
+  }
+
+  async function deletePhoto(photoId, storagePath) {
+    if (!confirm('Delete this photo?')) return;
+    await supabaseClient.storage.from(PHOTOS_BUCKET).remove([storagePath]);
+    await supabaseClient.from('itinerary_photos').update({ is_deleted: true }).eq('id', photoId);
+    await loadItems();
+  }
+
+  async function editCaption(photoId) {
+    const photo = items.flatMap(i => i.photos || []).find(p => p.id === photoId);
+    const current = photo ? (photo.caption || '') : '';
+    const next = prompt('Caption:', current);
+    if (next === null) return; // cancelled
+    await supabaseClient.from('itinerary_photos').update({ caption: next.trim() || null }).eq('id', photoId);
+    await loadItems();
   }
 
   function startEdit(id) {
