@@ -219,7 +219,7 @@
     const { data: trips, error } = await supabaseClient
       .from('trips')
       .select('*')
-      .eq('is_delete', false)
+      .eq('is_deleted', false)
       .order('created_at', { ascending: false });
 
     const listEl = document.getElementById('tripList');
@@ -289,7 +289,7 @@
       .from('trips')
       .select('*')
       .eq('slug', slug)
-      .eq('is_delete', false)
+      .eq('is_deleted', false)
       .single();
 
     if (error || !trip) {
@@ -314,14 +314,14 @@
       .from('itinerary_items')
       .select('*')
       .eq('trip_id', tripId)
-      .eq('is_delete', false)
+      .eq('is_deleted', false)
       .order('day_number', { ascending: true })
       .order('order_index', { ascending: true });
 
     const { data: commentRows } = await supabaseClient
       .from('comments')
       .select('*')
-      .eq('is_delete', false)
+      .eq('is_deleted', false)
       .order('created_at', { ascending: true });
 
     items = (itemRows || []).map(it => ({
@@ -421,7 +421,7 @@
 
   async function deleteItem(id) {
     if (!confirm('Delete this item?')) return;
-    await supabaseClient.from('itinerary_items').update({ is_delete: true }).eq('id', id);
+    await supabaseClient.from('itinerary_items').update({ is_deleted: true }).eq('id', id);
     await loadItems();
   }
 
