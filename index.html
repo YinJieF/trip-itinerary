@@ -415,6 +415,8 @@
     <h3>Create new trip</h3>
     <input type="text" id="newTripName" placeholder="Trip name (e.g. Japan 2026)" />
     <input type="text" id="newTripSlug" placeholder="URL slug (e.g. japan-2026)" />
+    <label for="newTripDate" style="display:block;font-size:0.78rem;font-weight:600;color:var(--muted);margin-bottom:5px;">Start date (optional — Day 1's date)</label>
+    <input type="date" id="newTripDate" />
     <button class="add-btn" onclick="createTrip()">Create trip</button>
     <div id="tripError" class="error"></div>
   </div>
@@ -424,6 +426,7 @@
   <div class="sub"><a href="#" onclick="backToPicker(); return false;">&larr; switch trip</a></div>
   <h1 id="tripName">Loading trip…</h1>
   <div class="sub" id="tripSub"></div>
+  <div class="sub"><a href="#" id="tripDateLink" onclick="editTripDate(); return false;">Set start date</a></div>
 
   <div class="name-tag">
     Editing as <b id="currentNameDisplay"></b>
@@ -464,6 +467,7 @@
     console.error('Supabase init failed:', e);
   }
   let tripId = null;
+  let tripStartDate = null; // 'YYYY-MM-DD' or null
   let items = [];
 
   function checkPassword() {
@@ -541,6 +545,7 @@
   async function createTrip() {
     const name = document.getElementById('newTripName').value.trim();
     let slug = document.getElementById('newTripSlug').value.trim();
+    const startDate = document.getElementById('newTripDate').value || null;
     const errEl = document.getElementById('tripError');
     errEl.textContent = '';
 
@@ -549,7 +554,7 @@
       slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     }
 
-    const { error } = await supabaseClient.from('trips').insert({ name, slug });
+    const { error } = await supabaseClient.from('trips').insert({ name, slug, start_date: startDate });
     if (error) {
       errEl.textContent = error.message.includes('duplicate') ? 'That slug is already taken.' : error.message;
       return;
@@ -588,8 +593,10 @@
       return;
     }
     tripId = trip.id;
+    tripStartDate = trip.start_date || null;
     document.getElementById('tripName').textContent = trip.name;
     document.getElementById('tripSub').textContent = 'Edit the plan, leave comments below each item.';
+    updateTripDateLink();
 
     await loadItems();
 
@@ -604,6 +611,46 @@
   function getPhotoUrl(path) {
     const { data } = supabaseClient.storage.from(PHOTOS_BUCKET).getPublicUrl(path);
     return data.publicUrl;
+  }
+
+  // Given a day number (1, 2, 3…) and the trip's start_date, return a display
+  // string like "Fri, Sep 19". Returns '' if there's no start date or the day
+  // is 'Unscheduled'.
+  function formatDayDate(dayNumber) {
+    if (!tripStartDate || dayNumber == null || dayNumber === 'Unscheduled') return '';
+    const n = parseInt(dayNumber, 10);
+    if (isNaN(n)) return '';
+    const d = new Date(tripStartDate + 'T00:00:00');
+    d.setDate(d.getDate() + (n - 1));
+    return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  function updateTripDateLink() {
+    const link = document.getElementById('tripDateLink');
+    if (!link) return;
+    link.textContent = tripStartDate
+      ? `Start date: ${formatDateLong(tripStartDate)} (change)`
+      : 'Set start date';
+  }
+
+  function formatDateLong(isoDate) {
+    const d = new Date(isoDate + 'T00:00:00');
+    return d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  async function editTripDate() {
+    const next = prompt('Trip start date (YYYY-MM-DD) — this is the calendar date for Day 1:', tripStartDate || '');
+    if (next === null) return; // cancelled
+    const val = next.trim();
+    if (val && !/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+      alert('Please use YYYY-MM-DD format, e.g. 2026-09-19.');
+      return;
+    }
+    const { error } = await supabaseClient.from('trips').update({ start_date: val || null }).eq('id', tripId);
+    if (error) { alert('Failed to update start date: ' + error.message); return; }
+    tripStartDate = val || null;
+    updateTripDateLink();
+    render();
   }
 
   async function loadItems() {
@@ -671,10 +718,21 @@
     dayKeys.forEach(day => {
       const tab = document.createElement('button');
       tab.className = 'day-tab' + (day === currentDay ? ' active' : '');
-      tab.textContent = day === 'Unscheduled' ? 'Unscheduled' : `Day ${day}`;
+      const dateLabel = formatDayDate(day);
+      tab.textContent = day === 'Unscheduled'
+        ? 'Unscheduled'
+        : `Day ${day}${dateLabel ? ' · ' + dateLabel : ''}`;
       tab.onclick = () => { currentDay = day; render(); };
       tabsEl.appendChild(tab);
     });
+
+    const currentDateLabel = formatDayDate(currentDay);
+    if (currentDateLabel) {
+      const heading = document.createElement('div');
+      heading.className = 'day-title';
+      heading.textContent = `Day ${currentDay} — ${currentDateLabel}`;
+      container.appendChild(heading);
+    }
 
     grouped[currentDay].forEach(it => container.appendChild(renderItem(it)));
 
