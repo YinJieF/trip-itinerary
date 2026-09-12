@@ -8,58 +8,104 @@
 <meta http-equiv="Expires" content="0" />
 <title>Trip Itinerary</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f7f5f2;
-    --card: #ffffff;
-    --border: #e5e1da;
-    --text: #2b2a28;
-    --muted: #8a857c;
-    --accent: #3a6b5c;
-    --accent-light: #e8f0ed;
+    --bg: #E7EEF1;
+    --paper: #ffffff;
+    --ink: #1C2B39;
+    --muted: #64768A;
+    --stamp: #C1443D;
+    --stamp-dark: #A5372F;
+    --airmail: #2F6690;
+    --line: #D3DCE2;
+    --stamp-light: #F7E6E4;
+    --airmail-light: #E4EEF3;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: var(--bg);
-    color: var(--text);
-    padding: 24px 16px 80px;
+    background-image:
+      repeating-linear-gradient(-45deg, rgba(47,102,144,0.05) 0 10px, transparent 10px 20px);
+    background-attachment: fixed;
+    color: var(--ink);
+    padding: 28px 16px 90px;
   }
-  .wrap { max-width: 720px; margin: 0 auto; }
-  h1 { font-size: 1.5rem; margin-bottom: 4px; }
-  .sub { color: var(--muted); margin-bottom: 24px; font-size: 0.9rem; }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 1.9rem;
+    letter-spacing: -0.01em;
+    margin: 0 0 4px;
+    color: var(--ink);
+  }
+  .sub { color: var(--muted); margin-bottom: 22px; font-size: 0.92rem; }
   .day-group { margin-bottom: 28px; }
   .day-title {
     font-weight: 600;
     font-size: 1.05rem;
     margin-bottom: 10px;
-    color: var(--accent);
+    color: var(--stamp);
   }
+
+  /* --- item card: styled as a torn ticket stub --- */
   .item {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px 16px;
-    margin-bottom: 10px;
+    position: relative;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px 14px 68px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 2px rgba(28,43,57,0.04);
+  }
+  .item::before {
+    /* dashed perforation separating the time stub from the main content */
+    content: "";
+    position: absolute;
+    left: 56px;
+    top: 10px;
+    bottom: 10px;
+    border-left: 1.5px dashed var(--line);
+  }
+  .item::after {
+    /* punch-hole at the perforation, like a torn ticket edge */
+    content: "";
+    position: absolute;
+    left: 51px;
+    top: -1px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1px solid var(--line);
   }
   .item-top {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
   }
   .item-time {
-    color: var(--accent);
-    font-size: 0.85rem;
-    font-weight: 700;
+    position: absolute;
+    left: 0;
+    top: 14px;
+    width: 56px;
+    text-align: center;
+    color: var(--stamp-dark);
+    font-family: 'Fraunces', serif;
+    font-size: 1.02rem;
+    font-weight: 600;
     white-space: nowrap;
-    min-width: 44px;
   }
   .item-title-block { flex: 1; min-width: 0; }
-  .item-title { font-weight: 600; font-size: 1rem; }
-  .item-loc { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
-  .item-notes { font-size: 0.9rem; margin-top: 6px; white-space: pre-wrap; }
-  .item-actions { margin-top: 10px; display: flex; gap: 10px; }
+  .item-title { font-weight: 600; font-size: 1.02rem; }
+  .item-loc { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
+  .item-notes { font-size: 0.9rem; margin-top: 8px; white-space: pre-wrap; color: var(--ink); opacity: 0.85; }
+  .item-actions { margin-top: 12px; display: flex; gap: 14px; }
   .item-actions button {
     background: none;
     border: none;
@@ -67,71 +113,179 @@
     font-size: 0.8rem;
     cursor: pointer;
     padding: 2px 0;
+    font-family: 'Inter', sans-serif;
   }
-  .item-actions button:hover { color: var(--accent); }
-  .comments { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px; }
+  .item-actions button:hover { color: var(--stamp); }
+  .comments { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 10px; }
   .comment { font-size: 0.85rem; margin-bottom: 6px; }
-  .comment b { color: var(--accent); }
+  .comment b { color: var(--airmail); font-weight: 600; }
   .comment-form { display: flex; gap: 6px; margin-top: 6px; }
   .comment-form input[type=text] {
-    flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem;
+    flex: 1; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; font-size: 0.85rem; font-family: inherit;
   }
-  .comment-form button, .add-btn, .save-btn, .cancel-btn {
-    background: var(--accent);
+  .comment-form button, .add-btn, .save-btn {
+    background: var(--stamp);
     color: white;
     border: none;
-    border-radius: 6px;
-    padding: 6px 12px;
+    border-radius: 7px;
+    padding: 7px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+  .comment-form button:hover, .add-btn:hover, .save-btn:hover { background: var(--stamp-dark); }
+  .cancel-btn {
+    background: none;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 7px 14px;
     font-size: 0.85rem;
     cursor: pointer;
+    font-family: 'Inter', sans-serif;
   }
-  .cancel-btn { background: var(--muted); }
+
+  /* --- add-item panel: a plain paper card, deliberately calmer than the tickets --- */
   .add-form {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px;
-    margin-top: 20px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 22px;
   }
-  .add-form h3 { margin-top: 0; font-size: 0.95rem; }
+  .add-form h3 {
+    margin: 0 0 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
   .add-form input, .add-form textarea {
     width: 100%;
-    padding: 8px;
-    margin-bottom: 8px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    padding: 9px 10px;
+    margin-bottom: 9px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
     font-size: 0.9rem;
     font-family: inherit;
+    color: var(--ink);
+  }
+  .add-form input:focus, .add-form textarea:focus, .edit-field:focus {
+    outline: none;
+    border-color: var(--airmail);
+    box-shadow: 0 0 0 3px var(--airmail-light);
+  }
+  button:focus-visible, a:focus-visible, .day-tab:focus-visible {
+    outline: 2px solid var(--airmail);
+    outline-offset: 2px;
   }
   .row2 { display: flex; gap: 8px; }
   .row2 input { flex: 1; }
   .edit-field {
-    width: 100%; padding: 6px; margin-bottom: 6px; border: 1px solid var(--border);
-    border-radius: 6px; font-size: 0.9rem; font-family: inherit;
+    width: 100%; padding: 8px 10px; margin-bottom: 7px; border: 1px solid var(--line);
+    border-radius: 7px; font-size: 0.9rem; font-family: inherit;
   }
+
+  /* --- gate: the boarding-pass entry screen --- */
   .gate {
-    max-width: 360px; margin: 80px auto; text-align: center;
+    max-width: 380px;
+    margin: 60px auto;
+    background: var(--paper);
+    border-radius: 14px;
+    padding: 30px 28px 26px;
+    box-shadow: 0 4px 24px rgba(28,43,57,0.08);
+    text-align: left;
   }
-  .gate input { padding: 8px; width: 100%; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; }
-  .gate button { padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; }
-  .name-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; font-size: 0.85rem; color: var(--muted); }
-  .name-bar input { padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; }
-  .empty { color: var(--muted); font-size: 0.9rem; padding: 20px 0; text-align: center; }
-  .error { color: #b3453e; font-size: 0.85rem; margin-top: 8px; }
-  .day-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 16px; padding-bottom: 4px; }
+  .gate h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 1.5rem;
+    margin: 0 0 4px;
+  }
+  .gate p { color: var(--muted); font-size: 0.88rem; margin: 0 0 18px; }
+  .gate label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+  .gate input {
+    padding: 10px 12px; width: 100%; margin-bottom: 16px;
+    border: 1px solid var(--line); border-radius: 8px; font-size: 0.95rem; font-family: inherit;
+  }
+  .gate input:focus { outline: none; border-color: var(--airmail); box-shadow: 0 0 0 3px var(--airmail-light); }
+  .gate button {
+    width: 100%;
+    padding: 11px 16px;
+    background: var(--stamp);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+  .gate button:hover { background: var(--stamp-dark); }
+
+  .name-tag {
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 18px; font-size: 0.85rem; color: var(--muted);
+  }
+  .name-tag b { color: var(--ink); }
+  .name-tag a { color: var(--airmail); text-decoration: none; font-size: 0.8rem; }
+  .name-tag a:hover { text-decoration: underline; }
+
+  .empty { color: var(--muted); font-size: 0.9rem; padding: 24px 0; text-align: center; }
+  .error { color: var(--stamp-dark); font-size: 0.85rem; margin-top: 8px; }
+
+  /* --- day tabs: styled like small luggage tags --- */
+  .day-tabs { display: flex; gap: 10px; overflow-x: auto; margin-bottom: 18px; padding: 6px 2px 10px; }
   .day-tab {
+    position: relative;
     flex: 0 0 auto;
-    padding: 8px 14px;
-    border-radius: 20px;
-    border: 1px solid var(--border);
-    background: var(--card);
+    padding: 8px 16px 8px 22px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--paper);
     color: var(--muted);
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
   }
-  .day-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .day-tab::before {
+    /* luggage-tag punch hole */
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1px solid var(--muted);
+  }
+  .day-tab.active {
+    background: var(--airmail);
+    color: white;
+    border-color: var(--airmail);
+  }
+  .day-tab.active::before { border-color: rgba(255,255,255,0.8); background: var(--airmail); }
+
+  .trip-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--airmail);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+  .trip-card:hover { border-left-color: var(--stamp); }
+  .trip-card .item-title { font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.05rem; }
 
   /* --- photos --- */
   .photos { margin-top: 10px; }
@@ -139,13 +293,13 @@
   .photo-thumb { position: relative; width: 76px; }
   .photo-thumb img {
     width: 76px; height: 76px; object-fit: cover; border-radius: 8px;
-    border: 1px solid var(--border); cursor: pointer; display: block;
-    background: var(--accent-light);
+    border: 1px solid var(--line); cursor: pointer; display: block;
+    background: var(--stamp-light);
   }
   .photo-del {
     position: absolute; top: -6px; right: -6px;
     width: 20px; height: 20px; border-radius: 50%;
-    background: var(--accent); color: white; border: none;
+    background: var(--stamp); color: white; border: none;
     font-size: 12px; line-height: 20px; text-align: center; padding: 0;
     cursor: pointer;
   }
@@ -157,10 +311,10 @@
   .photo-caption.muted { opacity: 0.6; font-style: italic; }
   .photo-add-btn {
     display: inline-block; margin-top: 8px; padding: 6px 12px;
-    border: 1px dashed var(--border); border-radius: 8px;
-    font-size: 0.8rem; color: var(--accent); cursor: pointer;
+    border: 1px dashed var(--line); border-radius: 8px;
+    font-size: 0.8rem; color: var(--stamp); cursor: pointer;
   }
-  .photo-add-btn:hover { background: var(--accent-light); }
+  .photo-add-btn:hover { background: var(--stamp-light); }
   .photo-status { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
 
   /* --- image lightbox --- */
@@ -209,7 +363,7 @@
   }
 
   .comment-text a {
-    color: var(--accent);
+    color: var(--airmail);
     text-decoration: underline;
     word-break: break-all;
   }
@@ -232,7 +386,7 @@
   }
   
   .comment-actions button:hover {
-    color: var(--accent);
+    color: var(--stamp);
   }
 </style>
 </head>
@@ -244,9 +398,12 @@
 </div>
 <div id="gate" class="gate">
   <h2>Trip Itinerary</h2>
-  <p style="color:var(--muted); font-size:0.9rem;">Enter the shared password to continue.</p>
-  <input type="password" id="passInput" placeholder="Password" onkeydown="if(event.key==='Enter') checkPassword()" />
-  <button onclick="checkPassword()">Enter</button>
+  <p>Enter your name and the shared password to continue.</p>
+  <label for="nameInput">Your name</label>
+  <input type="text" id="nameInput" placeholder="e.g. Alex" onkeydown="if(event.key==='Enter') document.getElementById('passInput').focus()" />
+  <label for="passInput">Password</label>
+  <input type="password" id="passInput" placeholder="Shared password" onkeydown="if(event.key==='Enter') checkPassword()" />
+  <button onclick="checkPassword()">Continue</button>
   <div id="gateError" class="error"></div>
 </div>
 
@@ -268,9 +425,9 @@
   <h1 id="tripName">Loading trip…</h1>
   <div class="sub" id="tripSub"></div>
 
-  <div class="name-bar">
-    Editing as:
-    <input type="text" id="yourName" placeholder="Your name" />
+  <div class="name-tag">
+    Editing as <b id="currentNameDisplay"></b>
+    <a href="#" onclick="changeName(); return false;">· not you?</a>
   </div>
 
   <div id="dayTabs" class="day-tabs"></div>
@@ -310,17 +467,20 @@
   let items = [];
 
   function checkPassword() {
+    const name = document.getElementById('nameInput').value.trim();
     const val = document.getElementById('passInput').value.trim();
-    if (val === SHARED_PASSWORD) {
-      sessionStorage.setItem('trip_auth', 'ok');
-      document.getElementById('gate').style.display = 'none';
-      enterAfterAuth();
-    } else {
-      document.getElementById('gateError').textContent = 'Wrong password.';
-    }
+    const errEl = document.getElementById('gateError');
+
+    if (!name) { errEl.textContent = 'Please enter your name.'; return; }
+    if (val !== SHARED_PASSWORD) { errEl.textContent = 'Wrong password.'; return; }
+
+    localStorage.setItem('trip_username', name);
+    sessionStorage.setItem('trip_auth', 'ok');
+    document.getElementById('gate').style.display = 'none';
+    enterAfterAuth();
   }
 
-  if (sessionStorage.getItem('trip_auth') === 'ok') {
+  if (sessionStorage.getItem('trip_auth') === 'ok' && localStorage.getItem('trip_username')) {
     document.getElementById('gate').style.display = 'none';
     enterAfterAuth();
   }
@@ -364,7 +524,7 @@
       return;
     }
     listEl.innerHTML = '<h3>Existing trips</h3>' + trips.map(t =>
-      `<div class="item" style="cursor:pointer" onclick="selectTrip('${t.slug}')">
+      `<div class="trip-card" onclick="selectTrip('${t.slug}')">
          <div class="item-title">${escapeHtml(t.name)}</div>
          <div class="item-loc">/?trip=${escapeHtml(t.slug)}</div>
        </div>`
@@ -400,20 +560,20 @@
   async function openTrip(slug) {
     document.getElementById('tripPicker').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+    const nameDisplay = document.getElementById('currentNameDisplay');
+    if (nameDisplay) nameDisplay.textContent = getName();
     await init(slug);
   }
 
   function getName() {
-    let n = document.getElementById('yourName').value.trim();
-    if (!n) n = localStorage.getItem('trip_username') || '';
-    if (n) localStorage.setItem('trip_username', n);
-    return n || 'Someone';
+    return localStorage.getItem('trip_username') || 'Someone';
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const saved = localStorage.getItem('trip_username');
-    if (saved) document.getElementById('yourName').value = saved;
-  });
+  function changeName() {
+    localStorage.removeItem('trip_username');
+    sessionStorage.removeItem('trip_auth');
+    location.reload();
+  }
 
   async function init(slug) {
     const { data: trip, error } = await supabaseClient
